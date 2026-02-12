@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leoo v2</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    :root {
+        --primary: #FFD700;
+        --dark: #111;
+        --light: #f5f6fa;
+        --danger: #ff4757;
+        --text-grey: #555;
+        --sidebar-bg: #111;
+        --card-bg: #ffffff;
+        --text-main: #111;
+    }
+
+    /* Dark Mode Class */
+    body.dark-mode {
+        --light: #181818;
+        --dark: #000;
+        --sidebar-bg: #000;
+        --card-bg: #252525;
+        --text-main: #f5f6fa;
+        --text-grey: #aaa;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; font-family: 'Segoe UI', sans-serif; }
+
+    body {
+        background: var(--light);
+        color: var(--text-main);
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+        transition: background 0.3s;
+    }
+
+    /* --- Sidebar --- */
+    .sidebar {
+        width: 230px;
+        background: var(--sidebar-bg);
+        color: white;
+        padding: 30px 20px;
+        display: flex;
+        flex-direction: column;
+        transition: width 0.3s ease, background 0.3s;
+    }
+
+    .sidebar h1 { font-size: 26px; letter-spacing: 1px; }
+    .sidebar p { font-size: 13px; opacity: 0.6; margin-bottom: 40px; }
+
+    .sidebar button {
+        background: none; border: none; color: white;
+        padding: 12px 15px; margin-bottom: 8px;
+        text-align: left; border-radius: 8px;
+        cursor: pointer; font-size: 15px; transition: 0.2s;
+    }
+
+    .sidebar button:hover { background: #222; }
+    .sidebar button.active {
+        background: #222;
+        border-left: 4px solid var(--primary);
+        padding-left: 11px;
+    }
+
+    /* --- Main Area --- */
+    .main { flex: 1; padding: 40px; display: flex; flex-direction: column; }
+    .topbar { display: flex; justify-content: space-between; margin-bottom: 20px; align-items: center; }
+    .topbar h2 { font-size: 28px; font-weight: 600; }
+
+    .topbar button {
+        background: var(--primary); border: none; padding: 10px 20px;
+        border-radius: 8px; cursor: pointer; font-weight: bold;
+        color: #111; transition: 0.1s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .topbar button:active { transform: scale(0.96); }
+
+    /* --- List & Items --- */
+    #content { flex: 1; overflow-y: auto; padding-bottom: 20px; transition: 0.2s; }
+    .content-hidden { opacity: 0; transform: translateY(10px); }
+
+    .item {
+        background: var(--card-bg); padding: 18px; border-radius: 12px;
+        display: flex; justify-content: space-between; align-items: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.04); margin-bottom: 12px;
+        animation: slideIn 0.35s forwards;
+    }
+
+    @keyframes slideIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+    .check {
+        width: 22px; height: 22px; border: 2px solid #ddd;
+        border-radius: 6px; cursor: pointer; position: relative;
+    }
+    .check.checked { background: var(--primary); border-color: var(--primary); }
+    .check.checked::after { content: '✓'; position: absolute; top: -4px; left: 3px; color: #000; font-weight: bold; }
+
+    /* --- Settings Specific --- */
+    .settings-card {
+        background: var(--card-bg); padding: 25px; border-radius: 12px;
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+    .btn-danger { background: var(--danger) !important; color: white !important; }
+    .lang-toggle { display: flex; gap: 10px; }
+    .lang-toggle button { background: #ddd; padding: 5px 10px; border-radius: 5px; border: none; cursor: pointer; }
+    body.dark-mode .lang-toggle button { background: #444; color: white; }
+
+    /* --- Modal --- */
+    .modal-bg {
+        position: fixed; inset: 0; backdrop-filter: blur(4px);
+        background: rgba(0,0,0,0.4); display: none;
+        align-items: center; justify-content: center; z-index: 1000;
+    }
+    .modal {
+        background: var(--card-bg); padding: 30px; border-radius: 16px;
+        width: 380px; display: flex; flex-direction: column; gap: 15px;
+    }
+    .modal input { padding: 12px; border-radius: 8px; border: 1px solid #ddd; background: var(--card-bg); color: var(--text-main); }
+
+    .chart-container { height: 250px; background: var(--card-bg); padding: 15px; border-radius: 12px; margin-bottom: 30px; }
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+    <div>
+        <h1>Leoo</h1>
+        <p id="tagline">Think smarter, plan wiser</p>
+    </div>
+    <button id="tasksBtn" class="active">Tasks</button>
+    <button id="goalsBtn">Goals</button>
+    <button id="statsBtn">Statistics</button>
+    <button id="settingsBtn">Settings</button>
+</div>
+
+<div class="main">
+    <div class="topbar">
+        <h2 id="workspaceTitle">Tasks</h2>
+        <button id="newBtn">+ New</button>
+    </div>
+    <div id="content"></div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+    <div class="modal">
+        <h3 id="modalTitle">New Task</h3>
+        <input type="text" id="itemName">
+        <input type="date" id="itemDate">
+        <button id="createBtn">Create</button>
+    </div>
+</div>
+
+<script>
+// --- TRANSLATIONS ---
+const i18n = {
+    en: {
+        tasks: "Tasks", goals: "Goals", stats: "Statistics", settings: "Settings",
+        new: "+ New", placeholder: "What needs to be done?", create: "Create",
+        reset: "Reset All Data", theme: "Dark Mode", language: "Language",
+        confirmReset: "Are you sure? This will delete all tasks and stats!",
+        empty: "No items yet", tagline: "Think smarter, plan wiser", overdue: "Overdue", today: "Today", tomorrow: "Tomorrow", days: "days"
+    },
+    pt: {
+        tasks: "Tarefas", goals: "Objetivos", stats: "Estatísticas", settings: "Configurações",
+        new: "+ Novo", placeholder: "O que precisa ser feito?", create: "Criar",
+        reset: "Resetar Tudo", theme: "Modo Escuro", language: "Idioma",
+        confirmReset: "Tem certeza? Isso excluirá todas as tarefas e estatísticas!",
+        empty: "Nenhum item ainda", tagline: "Pense melhor, planeje com sabedoria", overdue: "Atrasado", today: "Hoje", tomorrow: "Amanhã", days: "dias"
+    }
+};
+
+// --- STATE ---
+let currentWorkspace = "tasks";
+let settings = JSON.parse(localStorage.getItem("leoo_settings")) || { theme: 'light', lang: 'en' };
+let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+let goals = JSON.parse(localStorage.getItem("goals")) || [];
+let completedTasks = JSON.parse(localStorage.getItem("completedTasks")) || [];
+let completedGoals = JSON.parse(localStorage.getItem("completedGoals")) || [];
+let charts = { task: null, goal: null };
+
+// --- CORE ---
+function save() {
+    localStorage.setItem("tasks", JSON.stringify(tasks));
+    localStorage.setItem("goals", JSON.stringify(goals));
+    localStorage.setItem("completedTasks", JSON.stringify(completedTasks));
+    localStorage.setItem("completedGoals", JSON.stringify(completedGoals));
+    localStorage.setItem("leoo_settings", JSON.stringify(settings));
+}
+
+function applySettings() {
+    document.body.className = settings.theme === 'dark' ? 'dark-mode' : '';
+    const t = i18n[settings.lang];
+    document.getElementById("tasksBtn").innerText = t.tasks;
+    document.getElementById("goalsBtn").innerText = t.goals;
+    document.getElementById("statsBtn").innerText = t.stats;
+    document.getElementById("settingsBtn").innerText = t.settings;
+    document.getElementById("newBtn").innerText = t.new;
+    document.getElementById("tagline").innerText = t.tagline;
+    document.getElementById("itemName").placeholder = t.placeholder;
+    document.getElementById("createBtn").innerText = t.create;
+}
+
+function switchWorkspace(type) {
+    const content = document.getElementById("content");
+    content.classList.add("content-hidden");
+    setTimeout(() => {
+        currentWorkspace = type;
+        document.querySelectorAll(".sidebar button").forEach(b => b.classList.remove("active"));
+        document.getElementById(type + "Btn").classList.add("active");
+        
+        const t = i18n[settings.lang];
+        document.getElementById("workspaceTitle").innerText = t[type];
+        document.getElementById("newBtn").style.display = (type === "stats" || type === "settings") ? "none" : "block";
+
+        if (type === "stats") renderStats();
+        else if (type === "settings") renderSettings();
+        else renderList();
+
+        content.classList.remove("content-hidden");
+    }, 200);
+}
+
+function renderList() {
+    const content = document.getElementById("content");
+    const t = i18n[settings.lang];
+    content.innerHTML = "";
+    const data = currentWorkspace === "tasks" ? tasks : goals;
+
+    if (data.length === 0) {
+        content.innerHTML = `<div style="text-align:center; margin-top:50px; opacity:0.5;"><h3>${t.empty}</h3></div>`;
+        return;
+    }
+
+    data.forEach((item, index) => {
+        const div = document.createElement("div");
+        div.className = "item";
+        
+        // Days calculation logic
+        const today = new Date(); today.setHours(0,0,0,0);
+        const due = new Date(item.date + "T00:00:00");
+        const diff = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+
+        let statusText = diff < 0 ? t.overdue : diff === 0 ? t.today : diff === 1 ? t.tomorrow : `${diff} ${t.days}`;
+        
+        div.innerHTML = `
+            <div style="display:flex; align-items:center; gap:15px;">
+                <div class="check" onclick="completeItem(${index}, this.parentElement.parentElement, this)"></div>
+                <span>${item.name}</span>
+            </div>
+            ${currentWorkspace === 'tasks' ? `<span style="font-size:12px; opacity:0.7;">${statusText}</span>` : ''}
+        `;
+        content.appendChild(div);
+    });
+}
+
+function completeItem(index, el, check) {
+    check.classList.add("checked");
+    el.style.opacity = "0";
+    setTimeout(() => {
+        const target = currentWorkspace === "tasks" ? tasks : goals;
+        const compTarget = currentWorkspace === "tasks" ? completedTasks : completedGoals;
+        compTarget.push({ ...target[index], completed: new Date() });
+        target.splice(index, 1);
+        save();
+        renderList();
+    }, 400);
+}
+
+function renderSettings() {
+    const t = i18n[settings.lang];
+    document.getElementById("content").innerHTML = `
+        <div class="settings-card">
+            <span>${t.theme}</span>
+            <button onclick="toggleTheme()" style="padding:8px 15px; border-radius:5px; border:none; cursor:pointer; background:var(--primary)">
+                ${settings.theme === 'light' ? '🌙 Dark' : '☀️ Light'}
+            </button>
+        </div>
+        <div class="settings-card">
+            <span>${t.language}</span>
+            <div class="lang-toggle">
+                <button onclick="setLang('en')" style="${settings.lang === 'en' ? 'border:2px solid var(--primary)' : ''}">🇺🇸 EN</button>
+                <button onclick="setLang('pt')" style="${settings.lang === 'pt' ? 'border:2px solid var(--primary)' : ''}">🇧🇷 PT</button>
+            </div>
+        </div>
+        <div class="settings-card">
+            <span>${t.reset}</span>
+            <button class="btn-danger" onclick="resetData()" style="padding:8px 15px; border-radius:5px; border:none; cursor:pointer;">🔥 Reset</button>
+        </div>
+    `;
+}
+
+function toggleTheme() {
+    settings.theme = settings.theme === 'light' ? 'dark' : 'light';
+    save(); applySettings(); renderSettings();
+}
+
+function setLang(l) {
+    settings.lang = l;
+    save(); applySettings(); renderSettings();
+}
+
+function resetData() {
+    if (confirm(i18n[settings.lang].confirmReset)) {
+        localStorage.clear();
+        location.reload();
+    }
+}
+
+function renderStats() {
+    const content = document.getElementById("content");
+    content.innerHTML = `<div class="chart-container"><canvas id="tasksChart"></canvas></div><div class="chart-container"><canvas id="goalsChart"></canvas></div>`;
+    
+    const getMonthlyData = (arr) => {
+        const counts = new Array(12).fill(0);
+        arr.forEach(i => counts[new Date(i.completed).getMonth()]++);
+        return counts;
+    };
+
+    const ctx1 = document.getElementById("tasksChart");
+    const ctx2 = document.getElementById("goalsChart");
+    const months = settings.lang === 'en' ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] : ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+    new Chart(ctx1, {
+        type: "bar",
+        data: { labels: months, datasets: [{ label: i18n[settings.lang].tasks, data: getMonthlyData(completedTasks), backgroundColor: "#FFD700" }] },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    new Chart(ctx2, {
+        type: "line",
+        data: { labels: months, datasets: [{ label: i18n[settings.lang].goals, data: getMonthlyData(completedGoals), borderColor: settings.theme === 'dark' ? '#fff' : '#111', tension: 0.4 }] },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+
+// --- EVENTS ---
+document.getElementById("newBtn").onclick = () => {
+    document.getElementById("modalBg").style.display = "flex";
+    document.getElementById("itemDate").style.display = currentWorkspace === "tasks" ? "block" : "none";
+    document.getElementById("modalTitle").innerText = i18n[settings.lang][currentWorkspace === "tasks" ? 'tasks' : 'goals'];
+};
+
+document.getElementById("createBtn").onclick = () => {
+    const name = document.getElementById("itemName").value;
+    const date = document.getElementById("itemDate").value;
+    if (!name) return;
+    if (currentWorkspace === "tasks") tasks.push({ name, date });
+    else goals.push({ name, date });
+    save();
+    document.getElementById("modalBg").style.display = "none";
+    document.getElementById("itemName").value = "";
+    renderList();
+};
+
+document.getElementById("tasksBtn").onclick = () => switchWorkspace("tasks");
+document.getElementById("goalsBtn").onclick = () => switchWorkspace("goals");
+document.getElementById("statsBtn").onclick = () => switchWorkspace("stats");
+document.getElementById("settingsBtn").onclick = () => switchWorkspace("settings");
+
+// Init
+applySettings();
+renderList();
+</script>
+</body>
+</html>
